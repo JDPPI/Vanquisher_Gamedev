@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:brick_breaker/src/components/power_up.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'components/components.dart';
+import 'components/obstacle.dart';
 import 'config.dart';
 
 enum PlayState { welcome, playing, gameOver, won }
@@ -22,8 +24,9 @@ class BrickBreaker extends FlameGame
           ),
         );
 
-  final ValueNotifier<int> score = ValueNotifier(0); // Add this line
+  final ValueNotifier<int> score = ValueNotifier(0);
   final rand = math.Random();
+
   double get width => size.x;
   double get height => size.y;
 
@@ -36,10 +39,12 @@ class BrickBreaker extends FlameGame
       case PlayState.gameOver:
       case PlayState.won:
         overlays.add(playState.name);
+        break;
       case PlayState.playing:
         overlays.remove(PlayState.welcome.name);
         overlays.remove(PlayState.gameOver.name);
         overlays.remove(PlayState.won.name);
+        break;
     }
   }
 
@@ -48,7 +53,6 @@ class BrickBreaker extends FlameGame
     super.onLoad();
 
     camera.viewfinder.anchor = Anchor.topLeft;
-
     world.add(PlayArea());
 
     playState = PlayState.welcome;
@@ -57,26 +61,54 @@ class BrickBreaker extends FlameGame
   void startGame() {
     if (playState == PlayState.playing) return;
 
+    // Clear previous game components
     world.removeAll(world.children.query<Ball>());
     world.removeAll(world.children.query<Bat>());
+    world.removeAll(world.children.query<Obstacle>());
+    world.removeAll(world.children.query<PowerUp>());
     world.removeAll(world.children.query<Brick>());
 
     playState = PlayState.playing;
-    score.value = 0; // Add this line
+    score.value = 0;
 
+    // Add game components
     world.add(Ball(
-        difficultyModifier: difficultyModifier,
-        radius: ballRadius,
-        position: size / 2,
-        velocity: Vector2((rand.nextDouble() - 0.5) * width, height * 0.2)
-            .normalized()
-          ..scale(height / 4)));
+      difficultyModifier: difficultyModifier,
+      radius: ballRadius,
+      position: size / 2,
+      velocity:
+          Vector2((rand.nextDouble() - 0.5) * width, height * 0.2).normalized()
+            ..scale(height / 2),
+    ));
 
     world.add(Bat(
+      size: Vector2(batWidth, batHeight),
+      cornerRadius: const Radius.circular(ballRadius / 2),
+      position: Vector2(width / 2, height * 0.90),
+    ));
+
+    // Add central and side obstacles
+    final obstacleMargin = 20.0; // Distance from the play area edges
+    world.addAll([
+      Obstacle(
         size: Vector2(batWidth, batHeight),
         cornerRadius: const Radius.circular(ballRadius / 2),
-        position: Vector2(width / 2, height * 0.95)));
+        position: Vector2(width / 2, height * 0.35),
+      ),
+      Obstacle(
+        size: Vector2(batWidth, batHeight),
+        cornerRadius: const Radius.circular(ballRadius / 2),
+        position: Vector2(obstacleMargin + batWidth / 2, height * 0.45),
+      ),
+      Obstacle(
+        size: Vector2(batWidth, batHeight),
+        cornerRadius: const Radius.circular(ballRadius / 2),
+        position:
+            Vector2(width - (obstacleMargin + batWidth / 2), height * 0.45),
+      ),
+    ]);
 
+    // Add bricks
     world.addAll([
       for (var i = 0; i < brickColors.length; i++)
         for (var j = 1; j <= 5; j++)
@@ -88,6 +120,25 @@ class BrickBreaker extends FlameGame
             color: brickColors[i],
           ),
     ]);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    // Check for winning condition
+    if (world.children.query<Brick>().isEmpty &&
+        playState == PlayState.playing) {
+      playState = PlayState.won;
+      overlays.add(PlayState.won.name);
+    }
+
+    // Check for game over
+    if (world.children.query<Ball>().isEmpty &&
+        playState == PlayState.playing) {
+      playState = PlayState.gameOver;
+      overlays.add(PlayState.gameOver.name);
+    }
   }
 
   @override
@@ -103,11 +154,14 @@ class BrickBreaker extends FlameGame
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowLeft:
         world.children.query<Bat>().first.moveBy(-batStep);
+        break;
       case LogicalKeyboardKey.arrowRight:
         world.children.query<Bat>().first.moveBy(batStep);
+        break;
       case LogicalKeyboardKey.space:
       case LogicalKeyboardKey.enter:
         startGame();
+        break;
     }
     return KeyEventResult.handled;
   }

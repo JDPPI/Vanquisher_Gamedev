@@ -14,8 +14,8 @@ const brickColors = [
   Color(0xff577590),
 ];
 
-const gameWidth = 412.0;
-const gameHeight = 915.0;
+const gameWidth = 820.0;
+const gameHeight = 1600.0;
 const ballRadius = gameWidth * 0.02;
 const batWidth = gameWidth * 0.2;
 const batHeight = ballRadius * 2;
@@ -24,4 +24,4 @@ const brickGutter = gameWidth * 0.015; // Add from here...
 final brickWidth =
     (gameWidth - (brickGutter * (brickColors.length + 1))) / brickColors.length;
 const brickHeight = gameHeight * 0.03;
-const difficultyModifier = 1.03;
+const difficultyModifier = 1.03; // To here.
